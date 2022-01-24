@@ -1,0 +1,15 @@
+#--------create_files.yaml--------------------------
+---
+- name: create file 1
+  copy:
+    dest: /home/secret/file1.txt
+    content:  |
+      line1, line2
+      line 3, {{ mytext }}
+
+- name: create file 2
+  copy:
+    dest: /home/secret/file2.txt
+    content:  |
+      line1, line2
+      line 3, {{ mytext }}

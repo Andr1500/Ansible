@@ -1,0 +1,22 @@
+---
+- name: playbook for handling errors
+  hosts: all
+  any_errors_fatal: true #any error stops running any tasks
+  become: yes
+
+  tasks:
+  - name: task 1
+    yum: name=treeee state=latest
+    ignore_errors: yes #for ignoring error in the task and continue work
+
+  - name: task 2
+    shell: cat /home/ec2-user/textfile1.txt
+    register: results
+    #failed_when: results.rc == 0 #falue if return code == 0
+    #failed_when: "'file 1' in results.stdout" #for adding case of falue
+
+  - debug:
+      var: results
+
+  - name: task 3
+    shell: echo file 2

@@ -1,0 +1,37 @@
+---
+- name: playbook for variables
+  hosts: all
+  become: yes
+
+  vars:
+    message1: message1
+    message2: message2
+    secret: secret_message1
+
+  tasks:
+  - name: print secret var
+    debug:
+      var: secret
+
+  - name: print word
+    debug:
+      msg: "secret message: {{ secret }}"
+
+  - name: print owner
+    debug:
+      msg: "owner is : --->{{ owner }}<---"
+
+  #set_fact – Set host facts from a task
+  - set_fact: full_message="{{ message1 }}, {{ message2 }} for {{ owner }}"
+
+  - debug:
+      var: full_message
+
+  - debug:
+      var: ansible_os_family #predefine variable, from setup module
+
+  - shell: uptime
+    register: results #put the outpit from shell command into the variable
+
+  - debug:
+      var: results.stdout #only info about uptime

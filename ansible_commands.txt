@@ -1,0 +1,595 @@
+install ansible:
+
+ Ubuntu 16.04:
+
+
+But before installing try toupdate using command:
+sudo apt-get update
+
+ sudo apt-get -y install python3-pip
+
+sudo apt-add-repository ppa:ansible/ansible
+sudo apt-get update
+sudo apt-get install ansible
+
+CentOS 7:
+sudo yum install epel-release
+sudo yum install ansible
+
+Ubuntu 18.04:
+sudo apt update
+sudo apt install -y python3 python3-pip python-virtualenv
+virtualenv -p python3 .venv
+source .venv/bin/activate
+pip3 install ansible==2.8.5
+pip3 install ansible
+
+sudo apt-get install python3-pip #istalling pip3
+sudo apt-get update -y
+sudo apt-get install -y python3-winrm#installing pywinrm for connecting ansible to windows machines
+
+
+[staging_servers]  #the group of servers, it is from inventory file
+agent1 ansible_host=ip_addr ansible_user=user ansible_ssh_private_key_file=/home/ec2-user/.ssh/id_rsa
+
+[client_1]
+client1 ansible_host=ip_addr owber=Vasia
+
+[client_1:vars]
+nsible_user=user owner=Petia
+
+[client_2]
+client2 ansible_host=3ip_addr
+
+[client_2:vars]
+ansible_user=user
+
+
+[windows_client]
+windows2012 ansible_host=ip_addr
+[windows_client:vars]
+ansible_user = user
+ansible_password = pass
+ansible_port = 5986
+ansible_connection = winrm
+ansible_winrm_server_cert_validation = ignore
+
+#for connecting with windows servers, is necessary install WinRM on windows servers
+#and install Pywinrm on ansible server.
+
+#the rule of creating group of servers in ansible:
+[staging_db]
+192.168.1.1
+
+[staging_app]
+192.168.2.1
+
+[staging_all:children]
+staging_db
+staging_app
+
+ansible -i hosts.txt all -m ping
+# -i is for inventory 
+# -m is for moduls (modul of commands)
+# all is for hosts (related to all hosts)
+
+ansible windows_client -m wim_ping
+
+file ansible.cfg for configuration:
+"[defaults]
+host_key_checking = false  #for not asking yes or no during first connection to the clients
+inventory         = ./hosts.txt"
+
+ansible-inventory --list #for checking list of hosts in inventory file
+
+ansible-inventory --graph  #for checking list of hosts witg graph
+
+ansible agent -m setup  #agent is the name of the group of servers, setup is for take some information from agent server
+
+ansible all -m shell -a "uptime"  #command for checkin uptime remotely, -a is for argument
+
+ansible all -m command -a "pwd"  #command is same as shell, but more securely
+
+ansible all -m copy -a "src=hello.txt dest=/home mode=777" -b #cpopy file from ansible master on another servers with sudo (-b)
+
+ansible all -m shell -a "ls -la /home"  #checking /home dir on remote agents
+
+ansible all -m file -a "path=/home/hello.txt state=absent" -b
+# delete file hello.txt from agents, "changed": true - it means that file was exist and was deleted, 
+# if "changed": false - it means that the file was not exist and was not deleted
+
+ansible all -m get_url -a "url=https://storage.googleapis.com/oceanwide_web.jpeg dest=/home" -b
+# dowload files from the inet on agents
+
+ansible all -m file -a "path=/home/thumb_20104_default_900.jpeg state=absent" -b
+# delete some file on the agents
+
+ansible all -m apt -a "name=apache2 state=present" -b
+# install on agents some programs, present is for installing
+
+ansible all -m uri -a "url=http://www.google.com"
+#check if I can read url address from agent servers
+
+ansible all -m uri -a "url=http://www.google.com return_content=yes"
+# url with content
+
+ansible all -m service  -a "name=apache2 state=started enabled=yes" -b
+# make apache service running after reboot
+
+ansible client_1 -m shell -a "ls /var" -vvv
+# -v (verbose_ is for debugging
+
+ansible-doc -l  #for help
+
+# we need to create group_vars directory and create yaml files here for
+# each module in our inventory file
+
+mv playbook.yaml playbook1.yaml
+# mv command in linux terminal is for renaming and deleting old file
+
+
+# --------------playbook1------------------------
+#the playbook for installing web server on agent servers and make another web page as defaults
+#hadlers is for making something when it is necessary (with notify command)
+
+- name: install Apache and upload my Web page
+  hosts: all
+  become: yes
+  
+  vars: 
+   source_file: ./MyWebsite/index.html
+   destination_file: /var/www/html
+   
+  tasks:
+  - name: Install Apache Web server
+    apt: name=apache2 state=present
+	
+  - name: Copy my home page to the servers
+    copy: src={{ source_file }} dest={{ destination_file }} mode=0555
+    notify: Restart Apache
+    
+  - name: Start Web server and make it enabled on boot
+    service: name=apache2 state=started enabled=yes
+	
+  handlers:
+  - name: Restart Apache
+    service: name=apache2 state=restarted
+	
+	#--------------------------------------------------
+
+#variables in ansible
+
+#------------------playbook_variables--------------
+---
+- name: The playbook for variables
+  hosts: all
+  become: yes
+  
+  vars:
+    message1: Access
+    message2: User
+    secret  : Qwerty123
+	
+  tasks:
+  - name: Print the secret variable
+    debug:
+      var: secret
+	  
+  - debug:  #print the secret var with the text
+      msg: "secret word is: {{ secret }}" 
+	  
+  - debug:  #print the variable of the server owner
+      msg: "owner of this server is: {{ owner }}"
+	  
+  - set_fact: full_message="{{ message1 }} {{message2 }} for {{ owner }}"
+  - debug:  #print the variable inclused many variables
+      var: "full_message"
+	  
+  - debug:  #print the system variable (from setup module)
+      var: ansible_distribution
+	  
+  - shell: uptime  #print results of uptime of the server
+    register: uptime_results
+  - debug:
+      var: uptime_results.stdout
+#-------------------------------------------------------
+
+#block When in playbooks
+
+#------playbook_block-------------
+  vars: 
+    source_file: ./MyWebsite/index.html
+    destin_file: /var/www/html
+	
+  tasks:
+  
+  - name: chech and print Linux version
+    debug: var=ansible_os_family
+	
+  - block:  #----Block for Debian Systems----
+      - name: Install Apache Web server for Debian Systems
+        apt: name=apache2 state=present
+      - name: Copy my home page to the servers
+        copy: src={{ source_file }} dest={{ destin_file }}  mode=0555
+        notify: Restart Apache for Debian
+      - name: Start Web server and make it enabled on boot for Debian
+        service: name=apache2 state=started enabled=yes
+    when: ansible_os_family == "Debian"
+	
+  - block:  #---Block for RedHat Systems---
+      - name: Install Apache Web server for RedHat Systems
+        yum: name=httpd state=latest
+      - name: Copy my home page to the servers
+        copy: src={{ source_file }} dest={{ destin_file }}  mode=0555
+        notify: Restart Apache for RedHat
+      - name: Start Web server and make it enabled on boot
+        service: name=httpd state=started enabled=yes
+    when: ansible_os_family == "RedHat"
+	
+  handlers:
+  - name: Restart Apache for Debian
+    service: name=apache2 state=restarted 
+  - name: Restart Apache for RedHat
+    service: name=httpd state=restarted
+#-----------------------------------
+	
+#playbook for loops
+
+#-------------playbook_loops--------------------
+----
+- name: the playbook with loops
+  hosts: client1
+  become: yes
+  
+  tasks:
+  - name: Say Hello to All
+    debug: msg="Hello {{ item }}"
+    loop:
+      - "Vasia"
+      - "Petia"
+      - "Zbyszek"
+	  
+  - name: Loop until example
+    shell: echo -n A >> myfile1.txt  && cat myfile1.txt
+    register: shelloutput
+    delay: 2  #delay time, is 2 seconds
+    retries: 10  #times of retrie
+    until: shelloutput.stdout.find("AAAA") == false
+	
+  - name: Print output from the Loop task
+    debug:
+      var: shelloutput.stdout
+#----------------------------------------------------------
+
+#playbook for updating web from the folder
+
+#--------------Playbook_blocks_loop_with_items_ with_fileglob--
+---
+- name: install Apache and upload my Web page
+  hosts: client3
+  become: yes
+  
+  vars:
+    source_folder: ./MyWebsite2
+    destin_folder: /var/www/html
+	
+  tasks:
+  - name: chech and print Linux version
+    debug: var=ansible_os_family
+	
+  - block:  #----Block for Debian Systems----
+      - name: Install Apache Web server for Debian Systems
+        apt: name=apache2 state=present
+      - name: Start Web server and make it enabled on boot for Debian
+        service: name=apache2 state=started enabled=yes
+    when: ansible_os_family == "Debian"
+	
+  - block:  #---Block for RedHat Systems---
+      - name: Install Apache Web server for RedHat Systems
+        yum: name=httpd state=latest
+      - name: Start Web server and make it enabled on boot
+        service: name=httpd state=started enabled=yes
+    when: ansible_os_family == "RedHat"
+	
+  - name: Copy my home page and files to the servers
+    copy: src={{ item }} dest={{ destin_folder }}  mode=0555
+    with_fileglob: "{{ source_folder }}/*.*"
+	
+    notify:
+     - Restart Apache for Debian
+     - Restart Apache for RedHat
+#-------------------------------------------------------------------------------------------
+
+#work with Jinja2 templates
+It is necessary for making some works (fe. installing different web pages)
+on the different servers. we need to make template index.j2 in the directory with 
+the web page and in this teplate we can write necessary system variables:
+				<font color="gold">Owner of this server is: {{ owner }}<br>
+                Server Host Name: {{ ansible_hostname }} <br>
+                Server OS is: {{ ansible_os_family }} <br>
+                Server IP address: {{ ansible_default_ipv4.address }} <br>
+                Server default interface: {{ansible_default_ipv4.interface }} <br>
+				
+Next, we need to change playbook:
+
+  hosts: all
+  become: yes
+
+#-----------------playbook_block_jinja_template--------
+---
+- name: install Apache and upload my Web page
+  hosts: all
+  become: yes
+
+  vars: 
+    source_folder: ./MyWebsite2
+    destin_folder: /var/www/html
+
+  tasks:
+  - name: chech and print Linux version
+    debug: var=ansible_os_family
+	
+  - block:  #----Block for Debian Systems----
+      - name: Install Apache Web server for Debian Systems
+        apt: name=apache2 state=present
+      - name: Start Web server and make it enabled on boot for Debian
+        service: name=apache2 state=started enabled=yes
+    when: ansible_os_family == "Debian"
+	
+  - block:  #---Block for RedHat Systems---
+      - name: Install Apache Web server for RedHat Systems
+        yum: name=httpd state=latest
+      - name: Start Web server and make it enabled on boot
+        service: name=httpd state=started enabled=yes
+    when: ansible_os_family == "RedHat"
+	
+  - name: Generate index.html file
+    template: src={{ source_folder }}/index.j2 dest={{ destin_folder }}/index.html mode=0555
+    notify:
+     - Restart Apache for Debian
+     - Restart Apache for RedHat
+	 
+  - name: Copy my home page and files to the servers
+    copy: src={{ item }} dest={{ destin_folder }}  mode=0555
+    with_fileglob: "{{ source_folder }}/*.*"
+    notify:
+     - Restart Apache for Debian
+     - Restart Apache for RedHat 
+	 
+  handlers:
+  - name: Restart Apache for Debian
+    service: name=apache2 state=restarted
+    when: ansible_os_family == "Debian" 
+	
+  - name: Restart Apache for RedHat
+    service: name=httpd state=restarted
+    when: ansible_os_family == "RedHat"
+#----------------------------------------------------------------
+
+ansible roles
+1. create forder roles
+2. ansible-galaxy init deploy_apache  #create the role
+Next, 
+variables -> are going to the file main,yml folder defaults
+pictures, etc -> are going to the folder files
+index.j2 -> is going to the folder templates
+handlers -> are going to main.yml of the folder handlers
+tasks -> are going to main.yml of the folder tasks
+
+playbook after thas looks like:
+#---------------playbook_roles--------
+---
+- name: install Apache and upload my Web page
+  hosts: all
+  become: yes
+  roles:
+    - { role: deployapacheweb, when: ansible_system == 'Linux' }
+	#run the role where the system is linux
+#-----------------------------------------------
+	
+extra-vars
+ansible-playbook playbookroles.yaml --extra-var "MYHOSTS=client3 owner=Fedia"
+#run playbook with extra variavles MYHOSTS from the playbook and change the variable from hosts.txt
+#---------------playbook_extra_vars------------
+---
+- name: install Apache and upload my Web page
+  hosts: " {{ MYHOSTS }}"
+  become: yes
+  roles:
+    - { role: deployapacheweb, when: ansible_system == 'Linux' }
+#----------------------------------------------------------
+
+using import and include
+
+we created 2 files for creating folders and for creating files
+and 1 playbook for including context fron this files
+
+#--------create_files.yaml--------------------------
+---
+- name: create file 1
+  copy:
+    dest: /home/secret/file1.txt
+    content:  |
+      line1, line2
+      line 3, {{ mytext }}
+        
+- name: create file 2
+  copy:
+    dest: /home/secret/file2.txt
+    content:  |
+      line1, line2
+      line 3, {{ mytext }}
+#--------------------------------------------------------------
+
+#------------create_folders.yaml----------------------
+---
+- name: create folder 1
+  file:
+    path:  /home/secret/folder1
+    state: directory
+    mode: 0755
+      
+- name: create folder 2
+  file:
+    path:  /home/secret/folder2
+    state: directory
+    mode: 0755
+	
+#----------playbook_include.yaml----------------------
+---
+- name: playbook
+  hosts: all
+  become: yes
+  
+  vars:
+    mytext: "hello folks!"
+    
+  tasks:
+  
+  - name: ping
+    ping:
+    
+  - name: create folders
+    include: create_folders.yaml
+  - name: create files
+    include: create_files.yaml
+#-----------------------------------------------------------------
+
+delegate_to this command is for delegating work for the necessary server
+
+#-----------playbook_delegate.yaml----------------------
+---
+- name: playbook
+  hosts: all
+  become: yes
+  
+  vars:
+    mytext: "playbook delegate"
+    
+  tasks:
+  
+  - name: ping
+    ping:
+  - name: unregister server from LB
+    shell: echo This server {{ inventory_hostname }} was deristered from LB, nodname is {{ ansible_nodename }} >> /
+home/log.txt
+    delegate_to: 127.0.0.1    #delegating to do this task on my ansible main server
+ 
+  - name: update by DB
+    shell: echo Update the DB
+    run_once: true  #run_once is running only once on the first server
+ 
+  - name: create file 1
+    copy:
+      dest: /home/file1.txt
+      content:  |
+        this is file 1
+        line1, line2
+        line 3  {{ mytext }}
+    delegate_to: client3
+        
+  - name: create file 2
+    copy:
+      dest: /home/file2.txt
+      content:  |
+        this is file 2
+        line1, line2
+        line 3, {{ mytext }}
+ 
+               
+  - name: Reboot the machine
+    shell: "sleep 5 && reboot"
+
+    async: 1
+    poll: 0
+
+  - name: wait till my servers will be online
+    wait_for:
+        host: "{{ inventory_hostname }}"
+        state: started
+        delay: 5
+        timeout: 40
+#---------------------------------------------------------
+
+Cathing and controll issues
+
+#----------playbook_errorshandling.yaml-----
+---
+- name: Ansible, working with errors
+  hosts: all
+  any_errors_fatal: true #stop any tasks when we have any error
+  become: yes
+  
+  tasks:
+  - name: task 1
+    yum: name=tree state=latest
+    ignore_errors: yes  #ignore error in the task
+	
+  - name: task 2
+    shell: cat /home/file1.txt 
+    register: results
+#    failed_when: "'everyone!' in results.stdout" #task failed when output contains necessary word
+    failed_when: results.rc == 0 #task failed when results code is zero
+	
+  - debug:
+      var: results
+	  
+  - name: task 3
+    shell: echo hi_everyone!
+	#-----------------------------------------------------
+	
+ansible-vault  #for keeping secrets as passwords etc
+
+ansible-vault create mysecrets.txt
+#creating a document for keeping secrets
+
+ansible-vault view mysecrets.txt
+#view my secrets in the document
+
+ansible-vault edit mysecrets.txt 
+#edit the necessary document with the secrets
+
+ansible-vault encrypt playbook_vault.yaml 
+# encrypting some playbook, it is not readable after that with cat
+
+ ansible-vault decrypt playbook_vault.yaml 
+# decrypting of encrypted playbook
+
+ansible-playbook playbook_vault.yaml  --ask-vault-pass
+# run the encrypted playbook 
+
+ansible-vault encrypt_string --stdin-name "My_Password"
+#encrypt the necessary password with ansible vault, "My_Password" is just for naming of the operation
+# you must put here the password for the operation, next the password, which will be encrypted, next
+# you can use the hash in your playbook
+
+ansible-playbook playbook_vault.yaml --ask-vault-pass
+#running the playbook with the hashing password, you must put here the password of the encryption operation,
+#playbook will run and will decrypt hash to password
+
+echo -n "Passw0rdSuperPuper" | ansible-vault encrypt_string
+#encrypt password with ansible vault
+
+#-------------playbook_vault.yaml------------------
+---
+- name: playbook with vault
+  hosts: all
+  become: yes
+  vars:
+    pass1: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          37373036636333303737343664313434363433376134346364323735383334616535363731343162
+          3163356235666634623430613734666231363464376139310a663735366130306636653663636334
+          61623337356631366263663765656162653339343461396136656365376666626539306139386636
+          3763316565313337620a323732323239373830616463316133656636393632663131343235623163
+          6566
+  tasks:
+  - name: create config file
+    copy:
+      dest: "/home/user/myconfig.conf"
+      content:
+        port = 9092
+        log = 7days
+        home = /opt/kafka/bin/
+        password = {{ pass1 }}
+#---------------------------------------------------------

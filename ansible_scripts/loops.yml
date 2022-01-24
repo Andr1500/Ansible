@@ -1,0 +1,29 @@
+---
+- name: loop
+  hosts: Server_Amazon_Linux_1
+  become: yes
+
+  tasks:
+  - name: Init session for users
+    debug: msg="Init session for {{ item }}"
+    loop:
+      - "user1"
+      - "user2"
+      - "user3"
+
+  - name: function loop for Until
+    shell: echo -n X >> file1.txt && cat file1.txt
+    register: output
+    delay: 2 #2 seconds delay
+    retries: 5 #maximum 5 tiles retried to do it
+    until: output.stdout.find("XXXXXXXXXX") == false
+
+  - name: print output of the file1
+    debug:
+      var: output.stdout
+
+ # - name: Install many packages
+ #   yum: name= {{ item }} state=installed
+ #   loop:
+ #     - tree
+ #     - mysql-client

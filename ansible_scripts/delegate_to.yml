@@ -1,0 +1,42 @@
+---
+- name: playbook
+  hosts: all
+#  become: yes
+
+  vars:
+    mytext: "hello folks!"
+
+  tasks:
+
+  # - name: unregister server from LB
+  #   shell: echo this server {{ inventory_hostname }} unregistered from the LB >> /home/ansiblelog.txt
+  #   delegate_to: 127.0.0.1
+
+  - name: create file 1
+    copy:
+      dest: /home/file1.txt
+      content:  |
+        File 1
+        content: {{ mytext }}
+    delegate_to: Server_Ubuntu_Linux_3
+
+  - name: create file 2
+    copy:
+      dest: /home/file2.txt
+      content:  |
+        File 2
+        content: {{ mytext }}
+
+  - name: reboot servers
+    shell: "sleep 3 && reboot now"
+
+    async: 1
+    poll: 0 #for not checking status of execution
+
+  - name: waiting servers will come up
+    wait_for:
+        host: "{{ inventory_hostname }}"
+        state: started
+        delay: 5
+        timeout: 30
+    delegate_to: 127.0.0.1

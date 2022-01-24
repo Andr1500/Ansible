@@ -1,0 +1,19 @@
+---
+- name: playbook with import and include
+  hosts: all
+  become: yes
+
+  vars:
+    mytext: "message from Ansible"
+
+  tasks:
+    - name: ping test
+      ping:
+
+    - name: create folders
+      include: create_folders.yml
+      #include add content from the source only during executing task
+
+    - name: create files
+      include: create_files.yml
+      #import is importing all data from the file during starting the playbook

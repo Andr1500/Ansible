@@ -1,0 +1,40 @@
+# usage of ansible-vault:
+# ansible-vault encrypt usage_vault.yml #encrypt of the playbook
+# ansible-vault decrypt usage_vault.yml
+# ansible-playbook usage_vault.yml --ask-vault-pass
+# #run encrypted playbook with asking password
+# ansible-playbook usage_vault.yml --vault-password-file vault.txt
+# # run encr playbook with addressing file with the password
+#ansible-vault encrypt_string --stdin-name "MyPassword"
+## for encrypting just 1 string
+# echo -n "qwerty123" | ansible-vault encrypt_string
+## for encrypting the string
+---
+- name: usage vault
+  hosts: all
+  become: yes
+
+  vars:
+    password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          34663932626632356163333033653663336361393736326362393236656432346238333066653561
+          3362303934373264633034383538343339633439636563330a383137313732643065663630303430
+          38346564333038353637346365316231303730346665333139316339313536633331643164333561
+          3630366634373838330a353863366638373936613263326537336466353332343866376437643963
+          6536
+
+
+  tasks:
+  - name: sheck current dir
+    shell: pwd
+
+
+  - name: create config file
+    copy:
+      dest: "/home/ec2-user/myconfig.conf"
+      content: |
+        port = 9892
+        log = 7days
+        home = /opt/apache/bin/
+        user = admin
+        password = {{ password }}

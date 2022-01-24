@@ -1,0 +1,35 @@
+---
+# tasks file for deploy_apache_webserver
+- name: Os family
+  debug: var=ansible_os_family
+
+- block:  #The block for RedHat family
+    - name: Install Apache Web server for RedHat
+      yum: name=httpd state=present
+
+    - name: Start Web server and make it enabled on boot for RedHat
+      service: name=httpd state=started enabled=yes
+
+  when: ansible_os_family == "RedHat"
+
+- block: #the block for Debian family
+    - name: Install Apache web server for Debian
+      apt: name=apache2 state=latest
+
+    - name: Start Web server and make it enabled on boot for Debian
+      service: name=apache2 state=started enabled=yes
+  when: ansible_os_family == "Debian"
+
+    #template module is checking source file in case of variables
+- name: generate index.html file for jinja
+  template: src=index.j2 dest={{ destination_folder }}/index.html mode=0555
+  notify:
+    - Restart Apache RedHat
+    - Restart Apache Debian
+
+- name: Copy my files to the servers
+  copy: src={{ item }} dest={{ destination_folder }} mode=0555
+  with_fileglob: "*.png"
+  notify:
+    - Restart Apache RedHat
+    - Restart Apache Debian

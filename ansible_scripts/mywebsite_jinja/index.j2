@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Ansible</title>
+  </head>
+  <body>
+    <p> Build with Ansible Jinja template</p>
+    <font color="green">Owner is: {{ owner }} <br>
+    <font color="green">Server host name: {{ ansible_hostname }} <br>
+    <font color="green">Private IP address is: {{ ansible_default_ipv4.address }} <br>
+    <font color="green">OS family: {{ ansible_os_family }} <br>
+    <img src="ansible-architecture.png" alt="Ansible architecture">
+    <p> Ansible architecture</p>
+    <img src="ansible_dependencies.png" alt="Ansible dependencies">
+    <p> Ansible dependencies</p>
+  </body>
+</html>
