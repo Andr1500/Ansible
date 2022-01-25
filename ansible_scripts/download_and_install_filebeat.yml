@@ -1,0 +1,58 @@
+---
+- name: Download and install filebeat
+  hosts: all
+  become: yes
+
+  tasks:
+  - name: create directory for filebeat storing
+    file:
+      path: /home/ec2-user/filebeat
+      state: directory
+      mode: '0755'
+
+  - name: download filebeat into temp directory
+    get_url:
+      url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.16.3-linux-x86_64.tar.gz
+      dest: /tmp/
+      mode: '0777'
+
+  - name: copy filebeat to filebeat directory
+    copy: remote_src=True src=/tmp/filebeat-7.16.3-linux-x86_64.tar.gz dest=/home/ec2-user/filebeat/filebeat-7.16.3-linux-x86_64.tar.gz
+
+  - name: delete archive file in /tmp/ directory
+    file: path=/tmp/filebeat-7.16.3-linux-x86_64.tar.gz state=absent
+
+  - name: extract filebeat (unarcive)
+    unarchive:
+      src: /home/ec2-user/filebeat/filebeat-7.16.3-linux-x86_64.tar.gz
+      dest: /home/ec2-user/filebeat/
+      remote_src: yes
+
+  - name: delete archive file from /filebeat/ dir
+    file: path=/home/ec2-user/filebeat/filebeat-7.16.3-linux-x86_64.tar.gz state=absent
+
+  - name: dowload and install public signing key
+    shell: sudo rpm --import https://packages.elastic.co/GPG-KEY-elasticsearch
+
+  - name: create repo file
+    copy:
+      dest: /etc/yum.repos.d/elastic.repo
+      content: |
+        [elastic-7.x]
+        name=Elastic repository for 7.x packages
+        baseurl=https://artifacts.elastic.co/packages/7.x/yum
+        gpgcheck=1
+        gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        enabled=1
+        autorefresh=1
+        type=rpm-md
+
+
+  - name: install filebeat
+    shell: sudo yum install filebeat -y
+
+  - name: enabling filebeat on boot and starting
+    service:
+      name: filebeat
+      state: restarted
+      enabled: yes
