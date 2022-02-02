@@ -593,3 +593,7 @@ echo -n "Passw0rdSuperPuper" | ansible-vault encrypt_string
         home = /opt/kafka/bin/
         password = {{ pass1 }}
 #---------------------------------------------------------
+
+ansible-playbook --limit filebeat download_and_install_filebeat.yml -C 
+or ansible-playbook -l filebeat download_and_install_filebeat.yml -C  
+#limiting execution of the playbook only on the necessary host
